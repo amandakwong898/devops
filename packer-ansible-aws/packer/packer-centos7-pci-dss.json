@@ -1,0 +1,88 @@
+{
+    "variables": {
+        "aws_access_key": "",
+        "aws_secret_key": "",
+        "ami_name": "centos7-pci-dss-{{isotime \"2006-01-02\"}}-{{timestamp}}",
+        "aws_region": "us-east-1",
+        "ssh_username": "centos",
+        "vpc_id": "",
+        "subnet_id": ""
+    },
+    "builders": [{
+        "type": "amazon-ebs",
+        "access_key": "{{user `aws_access_key`}}",
+        "secret_key": "{{user `aws_secret_key`}}",
+        "region": "{{user `aws_region`}}",
+        "instance_type": "m5.large",
+        "force_deregister": "true",
+        "ssh_username": "{{user `ssh_username`}}",
+        "communicator": "ssh",
+        "associate_public_ip_address": true,
+        "subnet_id": "{{user `subnet_id`}}",
+        "ami_name": "{{user `ami_name`}}",
+        "source_ami_filter": {
+            "filters": {
+                "virtualization-type": "hvm",
+                "name": "CentOS Linux 7 x86_64 HVM EBS *",
+                "root-device-type": "ebs"
+            },
+            "owners": ["679593333241"],
+            "most_recent": true
+        },
+        "launch_block_device_mappings": [
+        {
+          "delete_on_termination": true,
+          "device_name": "/dev/sda1",
+          "encrypted": true,
+          "volume_size": 64,
+          "volume_type": "gp2"
+        },
+        {
+          "delete_on_termination": true,
+          "device_name": "/dev/sdb",
+          "encrypted": true,
+          "volume_size": 64,
+          "volume_type": "gp2"
+        }
+        ],
+        "run_tags": {
+            "Name": "packer-build-image"
+        },
+        "tags": {
+            "Name": "{{user `ami_name`}}"
+        }
+    }],
+    "provisioners": [{
+            "type": "shell",
+            "inline": [
+		"sudo fdisk -l",
+        	"echo -e 'o\nn\np\n1\n\n\nw' | sudo fdisk /dev/nvme1n1",
+        	"sleep 2",
+        	"sudo mkfs.xfs /dev/nvme1n1p1",
+        	"echo '/dev/nvme1n1p1 /opt xfs defaults 1 2' | sudo tee -a /etc/fstab",
+        	"sudo mount /opt",
+        	"sudo restorecon -R -v /opt"
+		]
+        },
+        {
+            "type": "shell",
+            "inline": "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done"
+        },
+        {
+            "type": "shell",
+            "script": "./provisioners/scripts/bootstrap.sh"
+        },
+        {
+            "type": "ansible",
+            "playbook_file": "./provisioners/ansible/pci-dss.yml"
+        },
+	{
+            "type": "shell",
+            "script": "./provisioners/scripts/oscap-pci-dss.sh",
+            "valid_exit_codes": [ 0, 1, 2 ]
+        },
+        {
+            "type": "shell",
+            "script": "./provisioners/scripts/cleanup.sh"
+        }]
+}

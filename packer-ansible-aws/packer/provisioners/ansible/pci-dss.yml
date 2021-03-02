@@ -1,0 +1,34 @@
+---
+- name: Centos7 deployment playbook
+  hosts: all
+  become: yes
+  become_method: sudo
+  tasks:
+    - name: Add EPEL repository
+      yum:
+        name: epel-release
+        state: present
+
+    - name: Update all packages
+      yum:
+        name: "*"
+        state: latest
+
+    - name: Install basic packages
+      yum:
+        name: ['firewalld', 'bash-completion', 'tree', 'wget']
+        state: present
+
+    - name: Start and enable firewalld
+      service:
+        name: firewalld
+        state: started
+        enabled: yes
+
+- name: Run ansible-role-rhel7-pci-dss role
+  hosts: all
+  become: yes
+  become_method: sudo
+  roles:
+  - { role: ansible-role-rhel7-pci-dss }
+  ignore_errors: yes
