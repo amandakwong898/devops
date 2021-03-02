@@ -1,0 +1,14 @@
+[Unit]
+Description=Docker Compose Service
+After=syslog.target network.target
+
+[Service]
+Type=forking
+WorkingDirectory=/home/centos/jenkins-sonaqube-pipeline
+ExecStart=/home/centos/jenkins-sonaqube-pipeline/run.sh
+#ExecStop=/home/centos/jenkins-sonaqube-pipeline/down.sh
+User=centos
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target
